@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 import random
  
@@ -30,11 +30,20 @@ def simulate_user_ratings(feature_df, num_resorts_to_rate):
 
 def predict_user_rating(feature_df, user_ratings, target_resort):
     # compute the similarity between other resorts
+    similarities = cosine_similarity(feature_df)
+    
+    # min max scaling
+    min = np.min(similarities)
+    max = np.max(similarities)
+    similarities_scaled = (similarities - min) / (max - min)
+    
+    # df with scaled similarities
     similarity_df = pd.DataFrame(
-        cosine_similarity(feature_df),
+        similarities_scaled,
         index=feature_df.index,
         columns=feature_df.index
     )
+    
     # turn user_ratings into series for easier manipulation
     user_ratings = pd.Series(user_ratings)
 
