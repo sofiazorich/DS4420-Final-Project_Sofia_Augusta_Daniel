@@ -6,6 +6,7 @@ from ski_resort_CF import process_data, simulate_user_ratings, predict_user_rati
 import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import cosine_similarity
 import random
+import numpy as np
 
 def show_rating_prediction(data, resorts):
     st.header("Rating Prediction System")
@@ -68,11 +69,19 @@ def show_rating_prediction(data, resorts):
                 )
             
             # add similarity vis after selections made
-            st.subheader("Resort Similarities to Target")
+            st.subheader("Resort Similarities with Target")
             
             # calc similarities
+            similarities = cosine_similarity(data)
+            
+            # min max scaling
+            min = np.min(similarities)
+            max = np.max(similarities)
+            similarities_scaled = (similarities - min) / (max - min)
+            
+            # df with scaled similarities
             similarity_df = pd.DataFrame(
-                cosine_similarity(data),
+                similarities_scaled,
                 index=data.index,
                 columns=data.index
             )
@@ -105,7 +114,7 @@ def show_rating_prediction(data, resorts):
             
             # caption
             st.caption("""
-            Chart to show how similar each randomly rated resort is to the target resort using cosine similarity.
+            Chart to show how similar each randomly rated resort is to the target resort using scaled cosine similarity.
             These scores were used to calculate the weighted average rating prediction of the target.
             """)
     else:
@@ -115,10 +124,10 @@ def main():
     # setup page layout!!
     st.set_page_config(layout="wide")
 
-    # Create tabs for different sections
+    # tab for different sections
     tab1, tab2 = st.tabs(["About Project", "Rating Prediction"])
 
-    # Tab 1: Landing Page
+    # tab 1
     with tab1:
         st.title("Ski Resort Recommendation System")
         st.markdown("""
@@ -128,17 +137,19 @@ def main():
         
         ### How our app works!
         1. Our algorithm uses the following numeric features from ski-resorts.csv:
+            - Top elevation
             - Elevation difference
             - Total slope length
             - Number of lifts
+            - Number of slopes
             - Annual snowfall
-        2. You can see a prediction of what rating a user would give to a resort based on their ratings of other resorts.
+        2. You can see a prediction of what rating a user would give to a resort based on their (randomly generated) ratings of other resorts.
         
         ### Dataset
-        Our dataset includes various ski resorts with their characteristics and features that help determine similarity between resorts.
+        Our dataset includes various global ski resorts with their characteristics and features that help determine similarity between resorts.
         """)
 
-    # Tab 2: Rating Prediction
+    # tab 2
     with tab2:
         st.title("Ski Resort Rating Prediction")
         
@@ -147,7 +158,7 @@ def main():
             data = process_data('data/ski-resorts.csv')
             resorts = list(data.index)
         except Exception as e:
-            st.error("Failed to load data. Please check file path.")
+            st.error("Failed to load data - please check file path.")
             return
 
         show_rating_prediction(data, resorts)
