@@ -1,0 +1,135 @@
+---
+title: "FinalProject_DS4420"
+author: "Augusta Crow"
+date: "2025-03-31"
+output: html_document
+---
+
+### Create the Neural Network
+```{r}
+# import necessary libraries
+library(nnet)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(caTools)
+library(ggplot2)
+
+# load the dataset
+data <- read_csv("Downloads/ski-resorts.csv")
+
+# convert selected columns to numeric explicitly
+numeric_data <- data %>%
+  select(
+    rating,
+    elevation_top_m,
+    elevation_difference_m,
+    total_slope_length_km,
+    number_of_lifts,
+    number_of_slopes,
+    annual_snowfall_cm
+  ) %>%
+  mutate(across(everything(), as.numeric)) %>%
+  drop_na()
+
+# scale data
+scaled_data <- scale(numeric_data)
+
+# define x and y
+X <- as.data.frame(scaled_data[, -1])  # Features
+y <- scaled_data[, 1]   # Target: rating
+
+# train-test split
+set.seed(123)
+split <- sample.split(y, SplitRatio = 0.8)
+X_train <- X[split, ]
+X_test <- X[!split, ]
+y_train <- y[split]
+y_test <- y[!split]
+
+# train simple neural network model
+nn_model <- nnet(
+  y_train ~ ., 
+  data = X_train,
+  size = 10,  # number of hidden nodes
+  linout = TRUE,  # regression problem
+  decay = 0.01,  # regularization term
+  maxit = 200  # max number of iterations
+)
+
+```
+
+### Predicted v. Actual Plot
+```{r}
+# make predictions
+predictions <- predict(nn_model, X_test)
+
+# inverse scale the predictions and y_test
+rating_mean <- attr(scaled_data, "scaled:center")[["rating"]]
+rating_sd <- attr(scaled_data, "scaled:scale")[["rating"]]
+
+y_test_rescaled <- y_test * rating_sd + rating_mean
+pred_rescaled <- predictions * rating_sd + rating_mean
+
+# combine into data frame for plotting
+results_df <- data.frame(
+  Actual = as.vector(y_test_rescaled),
+  Predicted = as.vector(pred_rescaled)
+)
+
+# plot chart showing actuals versus predictions
+ggplot(results_df, aes(x = Actual, y = Predicted)) +
+  geom_point(color = "#2c7fb8", alpha = 0.6, size = 2) +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  labs(
+    title = "Predicted vs Actual Ratings (Scatter Plot)",
+    x = "Actual Rating",
+    y = "Predicted Rating"
+  ) +
+  theme_minimal()
+```
+
+### Plot of Residuals
+```{r}
+# plot prediceted versus residuals chart
+results_df$Residuals <- results_df$Actual - results_df$Predicted
+
+ggplot(results_df, aes(x = Predicted, y = Residuals)) +
+  geom_point(alpha = 0.6, color = "#41ab5d") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  labs(
+    title = "Residuals vs Predicted",
+    x = "Predicted Rating",
+    y = "Residuals"
+  ) +
+  theme_minimal()
+```
+
+### Evaluation of Performance
+```{r}
+# calculate correlation
+r_squared <- cor(results_df$Actual, results_df$Predicted)
+cat("Correlation:", round(r_squared, 3), "\n")
+
+# calculate r-squared
+r_squared <- cor(results_df$Actual, results_df$Predicted)^2
+cat("R-squared:", round(r_squared, 3), "\n")
+
+# calculate rsme
+rmse <- sqrt(mean((results_df$Actual - results_df$Predicted)^2))
+cat("RMSE:", round(rmse, 3))
+```
+
+### Garson's Algorithm- for relative importance of each input feature
+```{r}
+# import necessary libraries
+library(NeuralNetTools)
+library(ggplot2)
+
+# plot object
+g <- garson(nn_model, bar_plot = TRUE)
+
+# plot relative importance chart
+g + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
